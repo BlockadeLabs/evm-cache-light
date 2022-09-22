@@ -110,6 +110,18 @@ class ContractQueries {
 		}
 	}
 
+	static getContractAddresses() {
+		return {
+			text: `
+				SELECT
+					cm.address
+				FROM
+					contract_meta cm;
+			`,
+			values: []
+		}
+	}
+
 	static getContractMeta(
 		address
 	) {
@@ -183,6 +195,7 @@ class ContractQueries {
 		symbol,
 		custom_name,
 		token_uri_json_interface,
+		token_uri_json_interface_parameters,
 		custom_token_uri,
 		custom_token_uri_headers
 	) {
@@ -197,21 +210,23 @@ class ContractQueries {
 						symbol,
 						custom_name,
 						token_uri_json_interface,
+						token_uri_json_interface_parameters,
 						custom_token_uri,
 						custom_token_uri_headers
 					)
 				VALUES (
-					$1, $2, $3, $4, $5, $6, $7, $8, $9
+					$1, $2, $3, $4, $5, $6, $7, $8, $9, $10
 				)
 				ON CONFLICT (address) DO UPDATE SET
-					standard                 = CASE WHEN EXCLUDED.standard                 IS NOT NULL THEN EXCLUDED.standard                 ELSE contract_meta.standard                 END,
-					abi                      = CASE WHEN EXCLUDED.abi                      IS NOT NULL THEN EXCLUDED.abi                      ELSE contract_meta.abi                      END,
-					name                     = CASE WHEN EXCLUDED.name                     IS NOT NULL THEN EXCLUDED.name                     ELSE contract_meta.name                     END,
-					symbol                   = CASE WHEN EXCLUDED.symbol                   IS NOT NULL THEN EXCLUDED.symbol                   ELSE contract_meta.symbol                   END,
-					custom_name              = CASE WHEN EXCLUDED.custom_name              IS NOT NULL THEN EXCLUDED.custom_name              ELSE contract_meta.custom_name              END,
-					token_uri_json_interface = CASE WHEN EXCLUDED.token_uri_json_interface IS NOT NULL THEN EXCLUDED.token_uri_json_interface ELSE contract_meta.token_uri_json_interface END,
-					custom_token_uri         = CASE WHEN EXCLUDED.custom_token_uri         IS NOT NULL THEN EXCLUDED.custom_token_uri         ELSE contract_meta.custom_token_uri         END,
-					custom_token_uri_headers = CASE WHEN EXCLUDED.custom_token_uri_headers IS NOT NULL THEN EXCLUDED.custom_token_uri_headers ELSE contract_meta.custom_token_uri_headers END;
+					standard                            = CASE WHEN EXCLUDED.standard                            IS NOT NULL THEN EXCLUDED.standard                            ELSE contract_meta.standard                            END,
+					abi                                 = CASE WHEN EXCLUDED.abi                                 IS NOT NULL THEN EXCLUDED.abi                                 ELSE contract_meta.abi                                 END,
+					name                                = CASE WHEN EXCLUDED.name                                IS NOT NULL THEN EXCLUDED.name                                ELSE contract_meta.name                                END,
+					symbol                              = CASE WHEN EXCLUDED.symbol                              IS NOT NULL THEN EXCLUDED.symbol                              ELSE contract_meta.symbol                              END,
+					custom_name                         = CASE WHEN EXCLUDED.custom_name                         IS NOT NULL THEN EXCLUDED.custom_name                         ELSE contract_meta.custom_name                         END,
+					token_uri_json_interface            = CASE WHEN EXCLUDED.token_uri_json_interface            IS NOT NULL THEN EXCLUDED.token_uri_json_interface            ELSE contract_meta.token_uri_json_interface            END,
+					token_uri_json_interface_parameters = CASE WHEN EXCLUDED.token_uri_json_interface_parameters IS NOT NULL THEN EXCLUDED.token_uri_json_interface_parameters ELSE contract_meta.token_uri_json_interface_parameters END,
+					custom_token_uri                    = CASE WHEN EXCLUDED.custom_token_uri                    IS NOT NULL THEN EXCLUDED.custom_token_uri                    ELSE contract_meta.custom_token_uri                    END,
+					custom_token_uri_headers            = CASE WHEN EXCLUDED.custom_token_uri_headers            IS NOT NULL THEN EXCLUDED.custom_token_uri_headers            ELSE contract_meta.custom_token_uri_headers            END;
 			`,
 			values: [
 				hexToBytea(address),
@@ -221,40 +236,9 @@ class ContractQueries {
 				symbol,
 				custom_name,
 				token_uri_json_interface ? JSON.stringify(token_uri_json_interface) : null,
-				custom_token_uri,
-				custom_token_uri_headers
-			]
-		}
-	}
-
-	static updateContractCustomMeta(
-		address,
-		custom_name,
-		token_uri_json_interface,
-		token_uri_json_interface_parameters,
-		custom_token_uri,
-		custom_token_uri_headers
-	) {
-		return {
-			text: `
-				UPDATE
-					contract_meta
-				SET
-					custom_name = CASE WHEN $2::text IS NOT NULL THEN $2::text ELSE contract_meta.custom_name END,
-					token_uri_json_interface = CASE WHEN $3::jsonb IS NOT NULL THEN $3 ELSE contract_meta.token_uri_json_interface END,
-					token_uri_json_interface_parameters = CASE WHEN $4::jsonb IS NOT NULL THEN $4 ELSE contract_meta.token_uri_json_interface_parameters END,
-					custom_token_uri = CASE WHEN $5::text IS NOT NULL THEN $5::text ELSE contract_meta.custom_token_uri END,
-					custom_token_uri_headers = CASE WHEN $6::jsonb IS NOT NULL THEN $6 ELSE contract_meta.custom_token_uri_headers END
-				WHERE
-					address = $1;
-			`,
-			values: [
-				hexToBytea(address),
-				custom_name,
-				token_uri_json_interface ? JSON.stringify(token_uri_json_interface) : null,
 				token_uri_json_interface_parameters ? JSON.stringify(token_uri_json_interface_parameters) : null,
 				custom_token_uri,
-				custom_token_uri_headers ? JSON.stringify(custom_token_uri_headers) : null
+				custom_token_uri_headers
 			]
 		}
 	}

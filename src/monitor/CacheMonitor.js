@@ -6,6 +6,7 @@ const byteaBufferToHex = require('../util/byteaBufferToHex.js');
 
 const BlockQueries = require('../database/queries/BlockQueries.js');
 const TransactionQueries = require('../database/queries/TransactionQueries.js');
+const ContractQueries = require('../database/queries/ContractQueries.js');
 
 const ContractController = require('../controller/ContractController.js');
 
@@ -29,31 +30,38 @@ class CacheMonitor {
 		this.timeoutMs = 30000;
 
 		this.cc = new ContractController(this.evmClient);
+
+		this.contractMetaAddresses = [];
 	}
 
 	async start() {
 		Database.connect((Client) => {
-			Client.query(BlockQueries.getLatestBlock(this.blockchain_id), async (result) => {
-				this.Client = Client;
+			Client.query(ContractQueries.getContractAddresses(), async (result) => {
 
-				let latest_number;
-				if (this.startBlockOverride !== false) {
-					latest_number = this.startBlockOverride;
-					log.info("Using start block number override:", latest_number);
-				} else if (!result || !result.rowCount) {
-					latest_number = 0;
-					log.info("No latest block, starting at 0");
-				} else {
-					// Rerun the current latest number - see truncate below
-					latest_number = parseInt(result.rows[0].number, 10);
-					log.info("Retrieved latest block:", latest_number);
-				}
+				this.contractMetaAddresses = result.rows.map((row) => byteaBufferToHex(row.address).toLowerCase());
 
-				// First we're going to truncate everything related to the current block
-				// so we can stop and start without missing data in-between
-				await this.flushBlock(latest_number);
+				Client.query(BlockQueries.getLatestBlock(this.blockchain_id), async (result) => {
+					this.Client = Client;
 
-				this.mainLoop(latest_number);
+					let latest_number;
+					if (this.startBlockOverride !== false) {
+						latest_number = this.startBlockOverride;
+						log.info("Using start block number override:", latest_number);
+					} else if (!result || !result.rowCount) {
+						latest_number = 0;
+						log.info("No latest block, starting at 0");
+					} else {
+						// Rerun the current latest number - see truncate below
+						latest_number = parseInt(result.rows[0].number, 10);
+						log.info("Retrieved latest block:", latest_number);
+					}
+
+					// First we're going to truncate everything related to the current block
+					// so we can stop and start without missing data in-between
+					await this.flushBlock(latest_number);
+
+					this.mainLoop(latest_number);
+				});
 			});
 		});
 	}
@@ -115,77 +123,55 @@ class CacheMonitor {
 				// Keep track of any changed blocks
 				let changedBlocks = [], waitingBlocks = 0;
 
-				// Go back and review the last N blocks
-				/*
-				if (++this.comprehensiveReviewCounter % this.comprehensiveReviewCountMod === 0) {
-					log.info(`Performing a comprehensive review of the last ${this.comprehensiveReviewBlockLimit} blocks.`);
+				log.info(`Performing a routine review of the last ${this.reviewBlockLimit} blocks.`);
 
-					for (
-						let prior_block_number = block_number - this.comprehensiveReviewBlockLimit;
-						prior_block_number < block_number - 1;
-						prior_block_number++
-					) {
-						this.getBlock.call(this, prior_block_number);
-					}
+				for (
+					let prior_block_number = block_number - this.reviewBlockLimit;
+					prior_block_number < block_number - 1;
+					prior_block_number++
+				) {
+					waitingBlocks++;
 
-					// Wait before checking for the next block
-					await sleep(15000);
-				} else {
-				*/
-
-					log.info(`Performing a routine review of the last ${this.reviewBlockLimit} blocks.`);
-
-					for (
-						let prior_block_number = block_number - this.reviewBlockLimit;
-						prior_block_number < block_number - 1;
-						prior_block_number++
-					) {
-						waitingBlocks++;
-
-						this.getBlock.call(this, prior_block_number, {
-							'foundDuringReviewBlock' : async (reviewed_block_number, block_hash) => {
-								log.info(`* Found new previous block at number ${reviewed_block_number}: ${block_hash}`);
-							},
-							'blockReviewResponse' : async(reviewed_block_number, is_changed, callback = () => {}) => {
-								if (is_changed) {
-									log.info(`** Adding changed block ${reviewed_block_number}`);
-									changedBlocks.push({
-										block: reviewed_block_number,
-										callback: callback
-									});
-								}
-
-								// Reduce the number of blocks in waiting
-								waitingBlocks--;
-
-								//log.info(`Remaining waiting blocks: ${waitingBlocks}`);
-
-								// If we've hit zero, return to main loop
-								if (waitingBlocks == 0) {
-									if (changedBlocks.length) {
-										changedBlocks.sort((a, b) => { if (a.block < b.block) return -1; return 1; })
-
-										log.info(`** Reviewing all changed blocks **`);
-
-										for (let pair of changedBlocks) {
-											log.info(`** Reviewing block ${pair.block}`);
-											await pair.callback();
-										}
-									} else {
-										// Wait before checking for the next block
-										await sleep(config.BLOCK_HEAD_WAIT_TIME);
-									}
-
-									// Try this block again
-									return this.mainLoop(parseInt(block_number, 10));
-								}
+					this.getBlock.call(this, prior_block_number, {
+						'foundDuringReviewBlock' : async (reviewed_block_number, block_hash) => {
+							log.info(`* Found new previous block at number ${reviewed_block_number}: ${block_hash}`);
+						},
+						'blockReviewResponse' : async(reviewed_block_number, is_changed, callback = () => {}) => {
+							if (is_changed) {
+								log.info(`** Adding changed block ${reviewed_block_number}`);
+								changedBlocks.push({
+									block: reviewed_block_number,
+									callback: callback
+								});
 							}
-						});
-					}
 
-				/*
+							// Reduce the number of blocks in waiting
+							waitingBlocks--;
+
+							//log.info(`Remaining waiting blocks: ${waitingBlocks}`);
+
+							// If we've hit zero, return to main loop
+							if (waitingBlocks == 0) {
+								if (changedBlocks.length) {
+									changedBlocks.sort((a, b) => { if (a.block < b.block) return -1; return 1; })
+
+									log.info(`** Reviewing all changed blocks **`);
+
+									for (let pair of changedBlocks) {
+										log.info(`** Reviewing block ${pair.block}`);
+										await pair.callback();
+									}
+								} else {
+									// Wait before checking for the next block
+									await sleep(config.BLOCK_HEAD_WAIT_TIME);
+								}
+
+								// Try this block again
+								return this.mainLoop(parseInt(block_number, 10));
+							}
+						}
+					});
 				}
-				*/
 			},
 			'blockAlreadyExists' : async (block_number, block_hash) => {
 				// Move to the next block
@@ -376,6 +362,7 @@ class CacheMonitor {
 			}
 
 			try {
+
 				let values = await Promise.all(promises);
 
 				// Commit the transaction for all of the promises
@@ -414,17 +401,71 @@ class CacheMonitor {
 		}
 	}
 
-	async addTransactions(block_hash, transactions) {
+	async captureWatchedTransactions(input_transactions, input_receipts) {
+		let transactions = [], receipts = [];
+
+		for (let idx in input_transactions) {
+			let input_transaction = input_transactions[idx];
+			let input_receipt = input_receipts[idx];
+
+			// If on the transaction level, store and back out
+			if (
+				input_transaction.to && this.contractMetaAddresses.indexOf(input_transaction.to.toLowerCase()) !== -1 ||
+				this.contractMetaAddresses.indexOf(input_transaction.from.toLowerCase()) !== -1 ||
+				(input_receipt.contractAddress && this.contractMetaAddresses.indexOf(input_receipt.contractAddress.toLowerCase()) !== -1)
+			) {
+				transactions.push(input_transaction);
+				receipts.push(input_receipt);
+				continue;
+			}
+
+			for (let log of input_receipt.logs) {
+				if (
+					this.contractMetaAddresses.indexOf(log.address.toLowerCase()) !== -1
+				) {
+					transactions.push(input_transaction);
+					receipts.push(input_receipt);
+					break;
+				}
+			}
+		}
+
+		return {
+			transactions,
+			receipts
+		};
+	}
+
+	async addTransactions(block_hash, input_transactions) {
 		let promises = [];
 
 		// Get all receipts
-		for (let idx = 0; idx < transactions.length; idx++) {
+		for (let idx = 0; idx < input_transactions.length; idx++) {
 			promises.push(
-				this.getTransactionReceipt(block_hash, transactions[idx])
+				this.getTransactionReceipt(block_hash, input_transactions[idx])
 			);
 		}
 
-		let receipts = await Promise.all(promises);
+		let input_receipts = await Promise.all(promises);
+
+
+		/**
+		 * At this point, we have all of the transactions and reciepts.
+		 * 
+		 * We only want to store the transactions and logs for relevant
+		 * contracts that we are monitoring...
+		 * 
+		 * So we want to review the transaction data: to, from, contract_address
+		 * and we want to review the log data: address
+		 * 
+		 **/
+		let {transactions, receipts} = await this.captureWatchedTransactions(input_transactions, input_receipts);
+
+		console.log("Found", transactions.length, "viable transactions out of", input_transactions.length);
+
+		if (transactions.length === 0) {
+			return Promise.all([]);
+		}
 
 		// Add all transactions at once
 		let results = await this.Client.query(TransactionQueries.addTransactions(

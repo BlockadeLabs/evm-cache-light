@@ -22,54 +22,6 @@ class ContractController {
 		this.evmClient = evmClient;
 	}
 
-	setContractCustom(address, custom_data, callback = ()=>{}) {
-		let custom_name = null,
-			token_uri_json_interface = null,
-			token_uri_json_interface_parameters = null,
-			custom_token_uri = null,
-			custom_token_uri_headers = null;
-		if (custom_data && typeof custom_data === 'object') {
-			if (custom_data.hasOwnProperty('custom_name')) {
-				custom_name = custom_data.custom_name;
-			}
-
-			if (custom_data.hasOwnProperty('token_uri_json_interface')) {
-				token_uri_json_interface = custom_data.token_uri_json_interface;
-			}
-
-			if (custom_data.hasOwnProperty('token_uri_json_interface_parameters')) {
-				token_uri_json_interface_parameters = custom_data.token_uri_json_interface_parameters;
-			}
-
-			if (custom_data.hasOwnProperty('custom_token_uri')) {
-				custom_token_uri = custom_data.custom_token_uri;
-			}
-
-			if (custom_data.hasOwnProperty('custom_token_uri_headers')) {
-				custom_token_uri_headers = custom_data.custom_token_uri_headers;
-			}
-		}
-
-		// Set the token URI for this standard
-		const ci = new ContractIdentifier();
-		ci.getNameSymbol(address, (res) => {
-			Database.connect((Client) => {
-				// Now allow setting custom data
-				Client.query(ContractQueries.updateContractCustomMeta(
-					address,
-					custom_name || null,
-					token_uri_json_interface || res.token_uri_json_interface || null,
-					token_uri_json_interface_parameters || null,
-					custom_token_uri || null,
-					custom_token_uri_headers || null
-				), (result) => {
-					Client.release();
-					callback();
-				});
-			});
-		});
-	}
-
 	setContractMetadata(address, abi = null, custom_data = null, callback = ()=>{}) {
 		const ci = new ContractIdentifier();
 		ci.determineStandard(address, (res) => {
@@ -97,11 +49,21 @@ class ContractController {
 				), () => {
 
 					let custom_name = null,
+						token_uri_json_interface = null,
+						token_uri_json_interface_parameters = null,
 						custom_token_uri = null,
 						custom_token_uri_headers = null;
 					if (custom_data && typeof custom_data === 'object') {
 						if (custom_data.hasOwnProperty('custom_name')) {
 							custom_name = custom_data.custom_name;
+						}
+
+						if (custom_data.hasOwnProperty('token_uri_json_interface')) {
+							token_uri_json_interface = custom_data.token_uri_json_interface;
+						}
+
+						if (custom_data.hasOwnProperty('token_uri_json_interface_parameters')) {
+							token_uri_json_interface_parameters = custom_data.token_uri_json_interface_parameters;
 						}
 
 						if (custom_data.hasOwnProperty('custom_token_uri')) {
@@ -122,7 +84,8 @@ class ContractController {
 							res.name || null,
 							res.symbol || null,
 							custom_name || null,
-							res.token_uri_json_interface || null,
+							token_uri_json_interface || res.token_uri_json_interface || null,
+							token_uri_json_interface_parameters || null,
 							custom_token_uri || null,
 							custom_token_uri_headers || null
 						), (result) => {
