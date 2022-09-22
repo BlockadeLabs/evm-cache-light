@@ -31,13 +31,10 @@ class LogParser {
 	}
 
 	pullTopics(txLog) {
-		let topics = [];
-		if (txLog.topics && txLog.topics.length) return txLog.topics;
-		if (txLog.topic_0) topics.push(byteaBufferToHex(txLog.topic_0));
-		if (txLog.topic_1) topics.push(byteaBufferToHex(txLog.topic_1));
-		if (txLog.topic_2) topics.push(byteaBufferToHex(txLog.topic_2));
-		if (txLog.topic_3) topics.push(byteaBufferToHex(txLog.topic_3));
-		return topics;
+		if (txLog.topics && txLog.topics.length) {
+			return txLog.topics.map(topic => byteaBufferToHex(topic));
+		}
+		return [];
 	}
 
 	pullEventSignatures(abi) {

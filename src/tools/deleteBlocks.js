@@ -23,7 +23,6 @@ Database.connect(async (Client) => {
 	for (let curr_end = end_number; curr_end >= start_number; curr_end -= BLOCKSIZE) {
 		let curr_start = Math.max(start_number, curr_end - BLOCKSIZE);
 		console.log("Sifting between blocks", curr_start, "and", curr_end, " --", ((end_number - curr_end) / (end_number - start_number))*100, "% Done" );
-		await Client.query(DeleteQueries.deleteOmmers(blockchain_id, curr_start, curr_end));
 		await Client.query(DeleteQueries.deleteLogsAndDependents(blockchain_id, curr_start, curr_end));
 		await Client.query(DeleteQueries.deleteTransactions(blockchain_id, curr_start, curr_end));
 		await Client.query(DeleteQueries.deleteBlocks(blockchain_id, curr_start, curr_end));

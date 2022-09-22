@@ -13,10 +13,7 @@ class TransactionQueries {
 		gas,
 		input,
 		status,
-		contract_address,
-		v,
-		r,
-		s
+		contract_address
 	) {
 		return {
 			text: `
@@ -33,10 +30,7 @@ class TransactionQueries {
 						gas,
 						input,
 						status,
-						contract_address,
-						v,
-						r,
-						s
+						contract_address
 					)
 				VALUES (
 					$1,
@@ -50,10 +44,7 @@ class TransactionQueries {
 					$9,
 					$10,
 					$11,
-					$12,
-					$13,
-					$14,
-					$15
+					$12
 				)
 				ON CONFLICT (hash) DO UPDATE SET
 					block_hash = EXCLUDED.block_hash,
@@ -66,10 +57,7 @@ class TransactionQueries {
 					gas = EXCLUDED.gas,
 					input = EXCLUDED.input,
 					status = EXCLUDED.status,
-					contract_address = EXCLUDED.contract_address,
-					v = EXCLUDED.v,
-					r = EXCLUDED.r,
-					s = EXCLUDED.s
+					contract_address = EXCLUDED.contract_address
 				RETURNING *;
 			`,
 			values: [
@@ -84,10 +72,7 @@ class TransactionQueries {
 				gas,
 				hexToBytea(input),
 				status,
-				hexToBytea(contract_address),
-				hexToBytea(v),
-				hexToBytea(r),
-				hexToBytea(s)
+				hexToBytea(contract_address)
 			]
 		}
 	}
@@ -116,12 +101,9 @@ class TransactionQueries {
 				transaction.gas,
 				hexToBytea(transaction.input),
 				receipt.status,
-				hexToBytea(receipt.contractAddress),
-				hexToBytea(transaction.v),
-				hexToBytea(transaction.r),
-				hexToBytea(transaction.s)
+				hexToBytea(receipt.contractAddress)
 			);
-			numbers.push(`(\$${++number},\$${++number},\$${++number},\$${++number},\$${++number},\$${++number},\$${++number},\$${++number},\$${++number},\$${++number},\$${++number},\$${++number},\$${++number},\$${++number},\$${++number})`);
+			numbers.push(`(\$${++number},\$${++number},\$${++number},\$${++number},\$${++number},\$${++number},\$${++number},\$${++number},\$${++number},\$${++number},\$${++number},\$${++number})`);
 		}
 
 		return {
@@ -139,10 +121,7 @@ class TransactionQueries {
 						gas,
 						input,
 						status,
-						contract_address,
-						v,
-						r,
-						s
+						contract_address
 					)
 				VALUES ${numbers.join(',')}
 				ON CONFLICT (hash) DO UPDATE SET
@@ -156,10 +135,7 @@ class TransactionQueries {
 					gas = EXCLUDED.gas,
 					input = EXCLUDED.input,
 					status = EXCLUDED.status,
-					contract_address = EXCLUDED.contract_address,
-					v = EXCLUDED.v,
-					r = EXCLUDED.r,
-					s = EXCLUDED.s
+					contract_address = EXCLUDED.contract_address
 				RETURNING *;
 			`,
 			values: values
@@ -173,10 +149,7 @@ class TransactionQueries {
 		log_index,
 		address,
 		data,
-		topic_0,
-		topic_1,
-		topic_2,
-		topic_3
+		topics
 	) {
 		return {
 			text: `
@@ -187,10 +160,7 @@ class TransactionQueries {
 						log_index,
 						address,
 						data,
-						topic_0,
-						topic_1,
-						topic_2,
-						topic_3
+						topics
 					)
 				VALUES (
 					$1,
@@ -198,10 +168,7 @@ class TransactionQueries {
 					$3,
 					$4,
 					$5,
-					$6,
-					$7,
-					$8,
-					$9
+					$6
 				)
 				ON CONFLICT DO NOTHING
 				RETURNING log_id;
@@ -212,10 +179,7 @@ class TransactionQueries {
 				log_index,
 				hexToBytea(address),
 				hexToBytea(data),
-				hexToBytea(topic_0),
-				hexToBytea(topic_1),
-				hexToBytea(topic_2),
-				hexToBytea(topic_3)
+				topics.map(topic => hexToBytea(topic))
 			]
 		}
 	}
@@ -234,13 +198,10 @@ class TransactionQueries {
 				log.logIndex,
 				hexToBytea(log.address),
 				hexToBytea(log.data),
-				hexToBytea(log.topics.length >= 1 ? log.topics[0] : null),
-				hexToBytea(log.topics.length >= 2 ? log.topics[1] : null),
-				hexToBytea(log.topics.length >= 3 ? log.topics[2] : null),
-				hexToBytea(log.topics.length >= 4 ? log.topics[3] : null)
+				log.topics.map(topic => hexToBytea(topic))
 			);
 
-			numbers.push(`(\$${++number},\$${++number},\$${++number},\$${++number},\$${++number},\$${++number},\$${++number},\$${++number},\$${++number})`);
+			numbers.push(`(\$${++number},\$${++number},\$${++number},\$${++number},\$${++number},\$${++number})`);
 		}
 
 		return {
@@ -252,10 +213,7 @@ class TransactionQueries {
 						log_index,
 						address,
 						data,
-						topic_0,
-						topic_1,
-						topic_2,
-						topic_3
+						topics
 					)
 				VALUES ${numbers.join(',')}
 				ON CONFLICT DO NOTHING

@@ -79,15 +79,6 @@ class CacheMonitor {
 			log.info("Transactions deleted");
 		}
 
-		await this.Client.query(BlockQueries.deleteOmmers(
-			this.blockchain_id,
-			block_number
-		));
-
-		if (verbose) {
-			log.info("Ommers deleted");
-		}
-
 		await this.Client.query(BlockQueries.deleteBlock(
 			this.blockchain_id,
 			block_number
@@ -296,8 +287,6 @@ class CacheMonitor {
 						//storeBlockAssocData.call(this, block);
 					}
 				} else {
-					// Maybe delete any ommer that mentions this?
-					// Or do we add a flag to block that says "selected block"?
 					// Alternatively, just taking whatever the current head is in the database
 					// should give us all the information we need, unless we have an attack that
 					// reorgs beyond the regular number of blocks within a given timeframe
@@ -336,19 +325,11 @@ class CacheMonitor {
 				block.number,
 				block.hash,
 				block.parentHash,
-				block.nonce,
 				block.gasLimit,
 				block.gasUsed,
 				block.timestamp,
-				block.sha3Uncles,
-				block.logsBloom,
-				block.transactionsRoot,
-				block.receiptsRoot,
-				block.stateRoot,
-				block.mixHash,
 				block.miner,
 				block.difficulty,
-				block.extraData,
 				block.size
 			), async (result) => {
 				if (!result || !result.rowCount) {
@@ -389,11 +370,6 @@ class CacheMonitor {
 				this.blockchain_id,
 				block.number
 			));
-
-			// Insert any ommers
-			if (block.uncles && block.uncles.length) {
-				promises.push(this.addOmmers(block.hash, block.uncles));
-			}
 
 			if (block.transactions && block.transactions.length) {
 				promises.push(this.addTransactions(block.hash, block.transactions));
@@ -436,22 +412,6 @@ class CacheMonitor {
 				process.exit(1);
 			}
 		}
-	}
-
-	async addOmmers(nibling_block_hash, ommers) {
-		let promises = [];
-
-		for (let idx = 0; idx < ommers.length; idx++) {
-			promises.push(
-				this.Client.query(BlockQueries.addOmmer(
-					this.blockchain_id,
-					ommers[idx],
-					nibling_block_hash
-				))
-			);
-		}
-
-		return Promise.all(promises);
 	}
 
 	async addTransactions(block_hash, transactions) {
@@ -540,78 +500,6 @@ class CacheMonitor {
 		return receipt;
 	}
 
-
-
-	/**
-	 * Old
-	 **/
-
-	async getTransaction(block_hash, transaction) {
-		let receipt = await this.evmClient.getTransactionReceipt(transaction.hash);
-
-		if (!receipt) {
-			log.info(`Transaction receipt not found for block. Dropping out to be re-inserted at a later iteration.\n\tBlock hash: ${block_hash}\n\tTX hash: ${transaction.hash}`);
-			return;
-		}
-
-		// Add the transaction
-		let result = await this.Client.query(TransactionQueries.addTransaction(
-			block_hash,
-			transaction.hash,
-			transaction.nonce,
-			transaction.transactionIndex,
-			transaction.from,
-			transaction.to,
-			transaction.value,
-			transaction.gasPrice,
-			transaction.gas,
-			transaction.input,
-			receipt.status || null,
-			receipt.contractAddress || null,
-			transaction.v,
-			transaction.r,
-			transaction.s
-		));
-
-		if (!result || !result.rowCount) {
-			this.Client.release();
-			log.error('No result returned for');
-			log.error(transaction);
-			log.error('^^ No result returned in block ' + block_hash + ' ^^');
-			process.exit(1);
-		}
-
-		if (!receipt.logs || !receipt.logs.length) {
-			return;
-		}
-
-		// First we delete the logs in case we have to update them
-		// There's no easier way for us to identify logs that have to be "updated"
-		// based on the transaction being included in another block -- this changes
-		// the log_index, so it's better to just wipe the associated logs and re-insert
-		// ALSO, doing this will cascade all log row deletes to the associated event
-		// tables that we're using for parsed logs
-		await this.Client.query(TransactionQueries.deleteLogsByTransactionHash(transaction.hash));
-
-		// Add the logs & any events
-		for (let idx = 0; idx < receipt.logs.length; idx++) {
-			let logResult = await this.Client.query(TransactionQueries.addLog(
-				transaction.hash,
-				receipt.logs[idx].blockNumber,
-				receipt.logs[idx].logIndex,
-				receipt.logs[idx].address,
-				receipt.logs[idx].data,
-				...receipt.logs[idx].topics
-			));
-
-			if (!logResult || !logResult.rowCount) {
-				log.error(`** Could not store log with index ${receipt.logs[idx].logIndex} for transaction ${transaction.hash}`);
-				continue;
-			}
-
-			await this.cc.setDecodedLog(this.Client, logResult.rows[0].log_id, receipt.logs[idx]);
-		}
-	}
 }
 
 module.exports = CacheMonitor;

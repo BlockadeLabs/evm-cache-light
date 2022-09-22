@@ -24,7 +24,8 @@ class BlockchainQueries {
 					blockchain (type, name)
 				VALUES (
 					$1, $2
-				);
+				)
+				ON CONFLICT DO NOTHING;
 			`,
 			values: [type, name]
 		}

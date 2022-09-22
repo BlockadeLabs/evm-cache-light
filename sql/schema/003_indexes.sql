@@ -8,10 +8,6 @@ CREATE INDEX block_parent_hash_idx ON "block" ("parent_hash");
 CREATE INDEX block_miner_idx ON "block" ("miner");
 CREATE INDEX block_created_time_idx ON "block" ("created_time");
 
--- ommer indexes
-CREATE INDEX ommer_hash_idx ON "ommer" ("hash");
-CREATE INDEX ommer_nibling_block_hash_idx ON "ommer" ("nibling_block_hash");
-
 -- transaction indexes
 CREATE INDEX transaction_block_hash_idx ON "transaction" ("block_hash");
 CREATE INDEX transaction_hash_idx ON "transaction" ("hash");
