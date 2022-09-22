@@ -1,0 +1,33 @@
+{
+  "name": "evm-cache-light",
+  "version": "2.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "concurrently --kill-others \"node index.js\" \"node metadata.js\"",
+    "start-dev": "concurrently --kill-others \"nodemon index.js\" \"nodemon metadata.js\"",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BlockadeLabs/evm-cache-light.git"
+  },
+  "author": "Blockade Games Inc",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/BlockadeLabs/evm-cache-light/issues"
+  },
+  "homepage": "https://github.com/BlockadeLabs/evm-cache-light#readme",
+  "dependencies": {
+    "axios": "^0.27.2",
+    "dotenv": "^16.0.2",
+    "loglevel": "^1.8.0",
+    "pg": "^8.8.0",
+    "web3": "^1.8.0",
+    "yargs": "^17.5.1"
+  },
+  "devDependencies": {
+    "concurrently": "^7.4.0",
+    "nodemon": "^2.0.20"
+  }
+}
