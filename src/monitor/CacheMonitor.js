@@ -173,13 +173,8 @@ class CacheMonitor {
 					});
 				}
 			},
-			'blockAlreadyExists' : async (block_number, block_hash) => {
-				// Move to the next block
-				log.info(`Block with hash ${block_hash} found, skipping.`);
-				this.mainLoop(parseInt(block_number, 10) + 1);
-			},
 			'moveToNextBlock' : async (block_number) => {
-				log.debug("mainLoop:", performance.now() - ml_a_perf, "ms");
+				log.debug(`#${block_number} added in`, Number((performance.now() - ml_a_perf).toFixed(2)), "ms");
 
 				// Move to the next block
 				this.mainLoop(parseInt(block_number, 10) + 1);
@@ -248,51 +243,11 @@ class CacheMonitor {
 			));
 
 			if (checkRes && checkRes.rowCount) {
-				// Default, not a changed block, on review
-				let is_changed = false;
+				// Keep track
+				log.info(`Revisiting block #${block.number}`);
 
-				if (block.transactions.length === parseInt(checkRes.rows[0].transaction_count, 10)) {
-					// Block transactions are valid for this hash, but what about the number as a whole?
-					// This handles previous blocks at this height that have been uncled
-					let numCheckRes = await this.Client.query(BlockQueries.getBlockTransactionCount(
-						this.blockchain_id, block_number
-					));
-
-					if (numCheckRes && numCheckRes.rowCount && block.transactions.length === parseInt(numCheckRes.rows[0].count, 10)) {
-						// Everything is in order, ignore and move on
-						if (callbacks.hasOwnProperty('blockAlreadyExists')) {
-							callbacks.blockAlreadyExists.call(this, block_number, block.hash);
-						}
-					} else {
-						log.info(`At block #${block_number}, found stale transactions. Previous transaction count: ${numCheckRes.rows[0].count}, expected: ${block.transactions.length}`);
-
-						// Stale
-						is_changed = true;
-
-						// There are stale blocks at this height, let's start fresh
-						//storeBlockAssocData.call(this, block);
-					}
-				} else {
-					// Alternatively, just taking whatever the current head is in the database
-					// should give us all the information we need, unless we have an attack that
-					// reorgs beyond the regular number of blocks within a given timeframe
-					log.info(`At a re-instated block, #${block_number}, restoring data. Previous transaction count: ${checkRes.rows[0].transaction_count}, expected: ${block.transactions.length}`);
-
-					// Stale
-					is_changed = true;
-
-					// Go ahead and store all of the data all over again, which
-					// migrates any moved data back to the de-facto block
-					//storeBlockAssocData.call(this, block);
-					if (!callbacks.hasOwnProperty('blockReviewResponse')) {
-						storeBlockAssocData.call(this, block);
-					}
-				}
-
-				// Need to come back to this
-				if (callbacks.hasOwnProperty('blockReviewResponse')) {
-					callbacks.blockReviewResponse.call(this, block_number, is_changed, storeBlockAssocData.bind(this, block));
-				}
+				// Jump to storing the data
+				storeBlockAssocData.call(this, block);
 
 				// Stop here.
 				return;
@@ -301,7 +256,7 @@ class CacheMonitor {
 				if (callbacks.hasOwnProperty('foundDuringReviewBlock')) {
 					callbacks.foundDuringReviewBlock.call(this, block_number, block.hash);
 				} else {
-					log.info(`Found new block at #${block.number}`);
+					log.info(`Found new block at #${block.number} -- ${(new Date(block.timestamp * 1000)).toLocaleString()}`);
 				}
 			}
 
@@ -336,7 +291,6 @@ class CacheMonitor {
 		});
 
 		async function storeBlockAssocData(block) {
-			let st_a_perf = performance.now();
 
 			// Queue up all of the tasks
 			let promises = [];
@@ -367,8 +321,6 @@ class CacheMonitor {
 
 				// Commit the transaction for all of the promises
 				await this.Client.query('COMMIT;');
-
-				log.debug("storeBlockAssocData:", performance.now() - st_a_perf, "ms");
 
 				if (callbacks.hasOwnProperty('moveToNextBlock')) {
 					callbacks.moveToNextBlock.call(this, block.number);
@@ -461,11 +413,11 @@ class CacheMonitor {
 		 **/
 		let {transactions, receipts} = await this.captureWatchedTransactions(input_transactions, input_receipts);
 
-		console.log("Found", transactions.length, "viable transactions out of", input_transactions.length);
-
 		if (transactions.length === 0) {
 			return Promise.all([]);
 		}
+
+		log.debug("Found", transactions.length, "viable transactions out of", input_transactions.length);
 
 		// Add all transactions at once
 		let results = await this.Client.query(TransactionQueries.addTransactions(
