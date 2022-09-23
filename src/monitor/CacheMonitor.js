@@ -22,9 +22,6 @@ class CacheMonitor {
 		this.Client = null; // Covered in start()
 
 		this.reviewBlockLimit = config.REVIEW_BLOCK_LIMIT;
-		this.comprehensiveReviewBlockLimit = config.COMPREHENSIVE_REVIEW_BLOCK_LIMIT;
-		this.comprehensiveReviewCounter = 0;
-		this.comprehensiveReviewCountMod = 250;
 
 		this.timeoutID;
 		this.timeoutMs = 30000;
@@ -148,8 +145,6 @@ class CacheMonitor {
 							// Reduce the number of blocks in waiting
 							waitingBlocks--;
 
-							//log.info(`Remaining waiting blocks: ${waitingBlocks}`);
-
 							// If we've hit zero, return to main loop
 							if (waitingBlocks == 0) {
 								if (changedBlocks.length) {
@@ -243,6 +238,11 @@ class CacheMonitor {
 			));
 
 			if (checkRes && checkRes.rowCount) {
+				if (callbacks.hasOwnProperty('blockReviewResponse')) {
+					callbacks.blockReviewResponse.call(this, block_number, false, storeBlockAssocData.bind(this, block));
+					return;
+				}
+
 				// Keep track
 				log.info(`Revisiting block #${block.number}`);
 
