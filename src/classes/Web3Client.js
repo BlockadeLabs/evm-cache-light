@@ -14,7 +14,7 @@ class Web3Client {
 	}
 
 	connect() {
-		let provider = this.endpoints[this.endpointIdx % this.endpoints.length];
+		let provider = this.getEndpoint();
 		if (provider.indexOf('ws://') !== -1 || provider.indexOf('wss://') !== -1) {
 			provider = new Web3.providers.WebsocketProvider(provider, {timeout: 1500, clientConfig:{ maxReceivedFrameSize: 10000000000, maxReceivedMessageSize: 10000000000}});
 		} else {
@@ -22,6 +22,10 @@ class Web3Client {
 		}
 
 		this.web3 = new Web3(provider);
+	}
+
+	getEndpoint() {
+		return this.endpoints[this.endpointIdx % this.endpoints.length];
 	}
 
 	getWeb3() {

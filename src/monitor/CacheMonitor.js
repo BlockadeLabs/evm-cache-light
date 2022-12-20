@@ -53,6 +53,9 @@ class CacheMonitor {
 						log.info("Retrieved latest block:", latest_number);
 					}
 
+					// Inform which network endpoint we're starting on
+					log.info(`Initially connected to network via endpoint: ${this.evmClient.getEndpoint()}`);
+
 					// First we're going to truncate everything related to the current block
 					// so we can stop and start without missing data in-between
 					await this.flushBlock(latest_number);
